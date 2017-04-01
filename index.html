@@ -1,0 +1,131 @@
+<html>
+<label>Upload Image:</label>
+<input type="file" id="img_load" name="img_load"/>
+<canvas id="src_canv"></canvas>
+<canvas id="hue_canv"></canvas>
+<canvas id="bw_canv"></canvas>
+<script>
+
+var img_load = document.getElementById('img_load');
+img_load.addEventListener('change', img_selected, false);
+var src_canv = document.getElementById('src_canv');
+var src_ctx = src_canv.getContext('2d');
+var hue_canv = document.getElementById('hue_canv');
+var hue_ctx = hue_canv.getContext('2d');
+var bw_canv = document.getElementById('bw_canv');
+var bw_ctx = bw_canv.getContext('2d');
+
+var src_id;
+var rgb = {r:0,g:0,b:0};
+var hsl = {h:0,s:0,l:0};
+
+var src_img = new Image();
+
+src_img.onload = function()
+{
+  src_canv.width = src_img.width;
+  src_canv.height = src_img.height;
+  hue_canv.width = src_img.width;
+  hue_canv.height = src_img.height;
+  bw_canv.width = src_img.width;
+  bw_canv.height = src_img.height;
+
+  perform_transforms();
+}
+
+function img_selected(e)
+{
+  var fr = new FileReader();
+  fr.onload = function(event)
+  {
+    src_img.src = event.target.result;
+  }
+  fr.readAsDataURL(e.target.files[0]);
+}
+
+function perform_transforms()
+{
+  //src
+  src_ctx.drawImage(src_img,0,0);
+
+  //hue
+  src_id = src_ctx.getImageData(0,0,src_canv.width,src_canv.height);
+  for(var i = 0; i < src_canv.width*src_canv.height*4; i+=4)
+  {
+    rgb.r = src_id.data[i+0];
+    rgb.g = src_id.data[i+1];
+    rgb.b = src_id.data[i+2];
+    RGB2HSL(rgb,hsl);
+    hsl.l = 150;
+    HSL2RGB(hsl, rgb);
+    src_id.data[i+0] = rgb.r;
+    src_id.data[i+1] = rgb.g;
+    src_id.data[i+2] = rgb.b;
+  }
+  hue_ctx.putImageData(src_id,0,0);
+
+  //bw
+  src_id = src_ctx.getImageData(0,0,src_canv.width,src_canv.height);
+  for(var i = 0; i < src_canv.width*src_canv.height*4; i+=4)
+  {
+    rgb.r = src_id.data[i+0];
+    rgb.g = src_id.data[i+1];
+    rgb.b = src_id.data[i+2];
+    RGB2HSL(rgb,hsl);
+    hsl.s = 0;
+    HSL2RGB(hsl, rgb);
+    src_id.data[i+0] = rgb.r;
+    src_id.data[i+1] = rgb.g;
+    src_id.data[i+2] = rgb.b;
+  }
+  bw_ctx.putImageData(src_id,0,0);
+}
+
+var RGB2HSL = function(rgb, hsl)
+{
+  var cmax = Math.max(rgb.r,rgb.g,rgb.b);
+  var cmin = Math.min(rgb.r,rgb.g,rgb.b);
+  var d = cmax-cmin;
+  hsl.l = (cmax+cmin)/2;
+  if(hsl.l < 0.5) hsl.s = (cmax-cmin)/(cmax+cmin);
+  else            hsl.s = (cmax-cmin)/(2-cmax-cmin);
+
+  if(cmax == rgb.r) hsl.h = (rgb.g-rgb.b)/(cmax-cmin);
+  if(cmax == rgb.g) hsl.h = 2 + (rgb.b-rgb.r)/(cmax-cmin);
+  if(cmax == rgb.b) hsl.h = 4 + (rgb.r-rgb.g)/(cmax-cmin);
+
+  hsl.h *= 60;
+
+  if(hsl.h < 0) hsl.h += 360;
+}
+var HSL2RGBHelperConvertTMPValToFinal = function(tmp_1, tmp_2, val)
+{
+  if(val*6 < 1) return tmp_2 + (tmp_1-tmp_2)*6*val;
+  else if(val*2 < 1) return tmp_1;
+  else if(val*3 < 2) return tmp_2 + (tmp_1-tmp_2)*(0.666-val)*6;
+  else return tmp_2;
+}
+var HSL2RGB = function(hsl, rgb)
+{
+  var tmp_1;
+  var tmp_2;
+  var tmp_3;
+
+  if(hsl.l < 0.5) tmp_1 = hsl.l * (1+hsl.s);
+  else            tmp_1 = hsl.l + hsl.s - (hsl.l*hsl.s);
+
+  tmp_2 = (2*hsl.l)-tmp_1;
+  tmp_3 = hsl.h/360;
+
+  rgb.r = tmp_3 + 0.333; while(rgb.r > 1) rgb.r -= 1; while(rgb.r < 0) rgb.r += 1;
+  rgb.g = tmp_3;         while(rgb.g > 1) rgb.g -= 1; while(rgb.g < 0) rgb.g += 1;
+  rgb.b = tmp_3 - 0.333; while(rgb.b > 1) rgb.b -= 1; while(rgb.b < 0) rgb.b += 1;
+
+  rgb.r = HSL2RGBHelperConvertTMPValToFinal(tmp_1, tmp_2, rgb.r);
+  rgb.g = HSL2RGBHelperConvertTMPValToFinal(tmp_1, tmp_2, rgb.g);
+  rgb.b = HSL2RGBHelperConvertTMPValToFinal(tmp_1, tmp_2, rgb.b);
+}
+
+
+</script>
+</html>
